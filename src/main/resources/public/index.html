@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>JavalinWSTest</title>
+</head>
+<body>
+    <h1>Open the URL in another tab to start collaborating</h1>
+    <textarea placeholder="Type something..."></textarea>
+    <script>
+        window.onload = setupWebSocket;
+        window.onhashchange = setupWebSocket;
+
+        if(!window.location.hash) {
+            const newDocumentId = Date.now().toString(36);
+            window.history.pushState(null, null, "#" + newDocumentId);
+        }
+
+        function setupWebSocket() {
+            const textArea = document.querySelector("textarea");
+            const ws = new WebSocket('ws://localhost:9090/docs/${window.location.hash.substr(1)}');
+            textArea.onkeyup = () => ws.send(textArea.value);
+            ws.onmessage = msg => {
+            	const offset = msg.data.length - textArea.value.length;
+            	const selection = {start: textArea.selectionStart, end: textArea.selectionEnd};
+            	const startsSame = msg.data.startsWith(textArea.value.substring(0, selection.end));
+            	const endsSame = msg.data.endsWith(textArea.value.substring(selection.start));
+            	textArea.value = msg.data;
+
+	            if(startsSame && !endsSame) {
+    	            textArea.setSelectionRange(selection.start, selection.end);
+        	    } else if(!startsSame && endsSame) {
+            	    textArea.setSelectionRange(selection.start + offset, selection.end + offset);
+           		} else {
+                	textArea.setSelectionRange(selection.start, selection.end + offset);
+            	}
+        	}
+        }
+        ws.onclose = setupWebSocket;
+    </script>
+
+</body>
+</html>
